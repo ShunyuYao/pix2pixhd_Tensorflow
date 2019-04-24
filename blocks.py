@@ -8,7 +8,7 @@ from activations import *
 from conv_base import *
 
 
-def res_block(name, x, out_f):   # conv('conv1', x, 3*3, 64, 2, ref_pad=1, pad=True)
+def res_block(name, x):   # conv('conv1', x, 3*3, 64, 2, ref_pad=1, pad=True)
     with tf.variable_scope(name):
         conv1 = conv('conv1', x, 3*3,1024,1,1,False)
         conv1_ins = ins_norm('ins1',conv1)
@@ -68,7 +68,7 @@ def G_base(name, x, batch):
 #                     conv('conv1', x, 3*3, 64, 2, ref_pad=1, pad=True)
         # conv_end = conv('conv_end',relu_up4,7*7,3,1,3,False)
         # tanh_end = tanh('tanh_end',conv_end)
-        return tanh_end
+        return relu_up4
 
 def D_base(name,x):
     with tf.variable_scope(name):

@@ -55,10 +55,10 @@ def conv_trans(name,x,kers,outs,s,b,pad):  #  要给batch
         w = tf.get_variable('w',
                             [ker,ker,outs,c],
                             tf.float32,
-                            tf.random_uniform_initializer(0,1))
+                            tf.random_uniform_initializer(0.0, 0.02))
         b = tf.get_variable('b',
                             [outs],
                             tf.float32,
-                            tf.random_uniform_initializer(0,1))
+                            tf.random_uniform_initializer(0.0, 0.02))
         paded = "SAME" if pad else "VALID"
         return tf.nn.conv2d_transpose(x,w,outshape,[1,s,s,1],padding=paded) + b
