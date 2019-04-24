@@ -6,6 +6,8 @@ import functools
 import os
 
 def ins_norm(name,x):
+    # param_initializers = {'beta':
+    #                       'gamma': }
     with tf.variable_scope(name):
         return tf.contrib.layers.instance_norm(x)
 

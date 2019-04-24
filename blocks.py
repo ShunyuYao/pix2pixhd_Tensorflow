@@ -8,13 +8,13 @@ from activations import *
 from conv_base import *
 
 
-def res_block(name, x):   # conv('conv1', x, 3*3, 64, 2, ref_pad=1, pad=True)
+def res_block(name, x, dim=1024):   # conv('conv1', x, 3*3, 64, 2, ref_pad=1, pad=True)
     with tf.variable_scope(name):
-        conv1 = conv('conv1', x, 3*3,1024,1,1,False)
+        conv1 = conv('conv1', x, 3*3,dim,1,1,False)
         conv1_ins = ins_norm('ins1',conv1)
         conv1_relu = relu('relu1',conv1_ins)
 
-        conv2 = conv('conv2',conv1_relu,3*3,1024,1,1,False)
+        conv2 = conv('conv2',conv1_relu,3*3,dim,1,1,False)
         conv2_ins = ins_norm('ins2',conv2)
         conv2_relu = relu('relu2',conv2_ins)
         return conv2_relu+x

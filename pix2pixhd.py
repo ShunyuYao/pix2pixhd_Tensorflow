@@ -86,19 +86,19 @@ class pix2pixHD:
                 out = tanh('tanh_end',out)
                 return out
             else:
-                conv1 = conv('conv1',x_concat,7*7,64,1,3,False)
+                conv1 = conv('conv1',x_label,7*7,32,1,3,False)
                 in1 = tf.nn.relu(ins_norm('ins1', conv1))
                 conv2 = conv('conv2',in1,3*3,64,2,0,True)
                 ins2 = tf.nn.relu(ins_norm('ins2', conv2))
 
-                x_pool = rpool('pool_x', x_concat)
+                x_pool = pool('pool_x', x_label)
                 G1 = G_base('G1', x_pool, self.batch)
-                G_add = tf.add(G1,ins2,name='G_Add')
+                G_add = tf.add(G1, ins2, name='G_Add')
 
-                conv4 = conv('conv4',G_add,3*3,1024,1,1,False)
-                res_1 = res_block('res_1',conv4)
-                res_2 = res_block('res_2',res_1)
-                trans1 = conv_trans('trans1',res_2,3*3,3,2,self.batch,True)
+                res_1 = res_block('res_1',G_add, dim=64)
+                res_2 = res_block('res_2',res_1, dim=64)
+                res_3 = res_block('res_3',res_2, dim=64)
+                trans1 = conv_trans('trans1',res_3,3*3,3,2,self.batch,True)
                 trans_tanh = tanh('trans_tanh',trans1)
             return trans_tanh
 
@@ -156,6 +156,8 @@ class pix2pixHD:
                                                           var_list=G_vars)
 
         dataset = tf.data.TFRecordDataset([self.tf_record_dir])
+        if self.debug:
+            dataset = dataset.take(100)
         dataset = dataset.map(self._extract_fn)
         dataset = dataset.repeat()  # Repeat the input indefinitely.
         dataset = dataset.batch(self.batch)
@@ -188,7 +190,7 @@ class pix2pixHD:
                                                    outputs={'output': self.fake_im})
                     graph.add_summary(Merge, step)
                     if (ep*self.n_im+j*self.batch) % self.save_iter == 0:
-                        Save_im(fake_im, self.save_im_dir, ep, j)
+                        Save_im(fake_im * 255, self.save_im_dir, ep, j)
 
                 if ep % self.save_ckpt_ep == 0:
                     num_trained = int(j*self.batch+ep*self.n_im)
