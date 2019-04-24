@@ -195,16 +195,16 @@ class pix2pixHD:
                                                    outputs={'output': self.fake_im})
                     graph.add_summary(Merge, step)
                     if (ep*self.n_im+j*self.batch) % self.save_iter == 0:
-                        g_loss, feat_loss, vgg_loss = sess.run([self.lsgan_g, self.feat_loss, self.vgg_loss], feed_dict=dict_)
-                        print('epoch: {} step: {}, \
-                              d1_loss: {}, d2_loss: {}, \
-                              g_loss: {}, feat_loss: {}, \
-                              vgg_loss: {} \
-                              '.format(ep+1,
-                                       int(j*self.batch)+1,
-                                        d1_loss,
-                                        d2_loss,
-                                        g_loss, feat_loss, vgg_loss))
+                        # g_loss, feat_loss, vgg_loss = sess.run([self.lsgan_g, self.feat_loss, self.vgg_loss], feed_dict=dict_)
+                        # print('epoch: {} step: {}, \
+                        #       d1_loss: {}, d2_loss: {}, \
+                        #       g_loss: {}, feat_loss: {}, \
+                        #       vgg_loss: {} \
+                        #       '.format(ep+1,
+                        #                int(j*self.batch)+1,
+                        #                 d1_loss,
+                        #                 d2_loss,
+                        #                 g_loss, feat_loss, vgg_loss))
                         Save_im(fake_im * 255, self.save_im_dir, ep, j)
 
                 if ep % self.save_ckpt_ep == 0:
