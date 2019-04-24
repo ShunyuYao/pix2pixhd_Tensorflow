@@ -59,6 +59,7 @@ class pix2pixHD:
         image_real = tf.decode_raw(sample['Real'], tf.uint8)
         image_real = tf.reshape(image_real, [480, 480, 3])
         image_real = tf.image.resize_images(image_real, [self.im_height, self.im_width])
+        image_real = ((image_real / 255) - 0.5) / 0.5
 
         return [image_label, image_real]
     # def read_and_decode(self,filename):
@@ -182,13 +183,12 @@ class pix2pixHD:
                 for j in range(self.n_im//self.batch):
                     dataset = sess.run(next_data)
                     label_fed, real_im_fed = dataset[0], dataset[1]
-                    real_im_fed = ((real_im_fed / 255) - 0.5) / 0.5
                     dict_ = {self.label: label_fed,
                              self.real_im: real_im_fed}
 
                     step = int(ep*(self.n_im // self.batch) + j)
+                    _, Merge = sess.run([optim_G_ALL, merge], feed_dict=dict_)
                     _, _ = sess.run([optim_D1, optim_D2], feed_dict=dict_)
-                    _, fake_im, Merge = sess.run([optim_G_ALL, self.fake_im, merge], feed_dict=dict_)
                     # print('real:', sess.run(self.real_im, feed_dict={self.real_im: real_im_fed})[0,:32,:32,:])
                     print('fake:', (fake_im[0, :, :, :] * 0.5 + 0.5) * 255)
 
@@ -198,18 +198,8 @@ class pix2pixHD:
                                                    inputs={'input': self.label},
                                                    outputs={'output': self.fake_im})
                     graph.add_summary(Merge, step)
-                    if (ep*self.n_im+j*self.batch) % self.save_iter == 0:
-                        # g_loss, feat_loss, vgg_loss = sess.run([self.lsgan_g, self.feat_loss, self.vgg_loss], feed_dict=dict_)
-                        # print('epoch: {} step: {}, \
-                        #       d1_loss: {}, d2_loss: {}, \
-                        #       g_loss: {}, feat_loss: {}, \
-                        #       vgg_loss: {} \
-                        #       '.format(ep+1,
-                        #                int(j*self.batch)+1,
-                        #                 d1_loss,
-                        #                 d2_loss,
-                        #                 g_loss, feat_loss, vgg_loss))
-                        Save_im((fake_im * 0.5 + 0.5) * 255, self.save_im_dir, ep, j)
+                    # if (ep*self.n_im+j*self.batch) % self.save_iter == 0:
+                    #     Save_im((fake_im * 0.5 + 0.5) * 255, self.save_im_dir, ep, j)
 
                 if ep % self.save_ckpt_ep == 0:
                     num_trained = int(j*self.batch+ep*self.n_im)
