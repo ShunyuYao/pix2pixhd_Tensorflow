@@ -132,6 +132,7 @@ class pix2pixHD:
         self.real_D2_out = self.build_D2(self.real_im,self.onehot,False)
         self.fake_D2_out = self.build_D2(self.fake_im,self.onehot,True)
         tf.summary.image('gen_img', (self.fake_im * 0.5 + 0.5)*255)
+        tf.summary.image('real_img', (self.real_im * 0.5 + 0.5)*255)
 
     def cacu_loss(self):
         self.lsgan_d1 = 0.5 * (disc_loss(self.real_D1_out, True) + disc_loss(self.fake_D1_out, False))
