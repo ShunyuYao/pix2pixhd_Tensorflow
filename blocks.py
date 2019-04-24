@@ -103,7 +103,7 @@ def feat_loss(d1_r,d1_f,d2_r,d2_f,feat_weight,d_weight):
     return loss_total
 
 def disc_loss(input, target_is_real):
-    if isinstance(input[0], list):
+    if isinstance(input, list):
         loss = []
         for pred in input:
             if target_is_real:
