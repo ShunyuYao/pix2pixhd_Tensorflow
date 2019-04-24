@@ -40,6 +40,8 @@ class pix2pixHD:
 
         self.debug = opt.debug
         self.saved_model = opt.saved_model
+        if self.debug:
+            self.save_iter = 5
 
     #############################  data_loader ##################################
     def _extract_fn(self, tf_record):
@@ -180,7 +182,7 @@ class pix2pixHD:
                              self.real_im: real_im_fed}
 
                     step = int(ep*(self.n_im // self.batch) + j)
-                    _, _ = sess.run([optim_D1, optim_D2], feed_dict=dict_)
+                    d1_loss, d2_loss = sess.run([optim_D1, optim_D2], feed_dict=dict_)
                     _, fake_im, Merge = sess.run([optim_G_ALL, self.fake_im, merge], feed_dict=dict_)
 
                     if self.debug and ep == 0 and j == 0:
@@ -193,6 +195,16 @@ class pix2pixHD:
                         Save_im(fake_im * 255, self.save_im_dir, ep, j)
 
                 if ep % self.save_ckpt_ep == 0:
+                    g_loss, feat_loss, vgg_loss = sess.run([self.lsgan_g, self.feat_loss, self.vgg_loss])
+                    print('epoch: {} step: {}, \
+                          d1_loss: {}, d2_loss: {}, \
+                          g_loss: {}, feat_loss: {}, \
+                          vgg_loss: {} \
+                          '.format(ep+1,
+                                   int(j*self.batch)+1,
+                                    d1_loss,
+                                    d2_loss,
+                                    g_loss, feat_loss, vgg_loss))
                     num_trained = int(j*self.batch+ep*self.n_im)
                     Saver.save(sess, self.save_path + '/' + 'model.ckpt', num_trained)
                     print('save success at num images trained: ',num_trained)
