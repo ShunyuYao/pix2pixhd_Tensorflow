@@ -192,7 +192,7 @@ class pix2pixHD:
                                                    outputs={'output': self.fake_im})
                     graph.add_summary(Merge, step)
                     if (ep*self.n_im+j*self.batch) % self.save_iter == 0:
-                        g_loss, feat_loss, vgg_loss = sess.run([self.lsgan_g, self.feat_loss, self.vgg_loss])
+                        g_loss, feat_loss, vgg_loss = sess.run([self.lsgan_g, self.feat_loss, self.vgg_loss], feed_dict=dict_)
                         print('epoch: {} step: {}, \
                               d1_loss: {}, d2_loss: {}, \
                               g_loss: {}, feat_loss: {}, \
