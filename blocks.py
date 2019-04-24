@@ -88,7 +88,7 @@ def D_base(name,x):
         l4 = lrelu('lrelu4',ins4)
 
         conv5 = conv('conv5',l4,4*4,1,1,0,True)
-        return [l1,l2,l3,l4,conv5]
+        return [l2,l3,l4,conv5]
 
 def feat_loss(d1_r,d1_f,d2_r,d2_f,feat_weight,d_weight):
     feat_1,feat_2 = [],[]
