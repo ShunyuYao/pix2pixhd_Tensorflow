@@ -185,26 +185,26 @@ class pix2pixHD:
                     d1_loss, d2_loss = sess.run([optim_D1, optim_D2], feed_dict=dict_)
                     _, fake_im, Merge = sess.run([optim_G_ALL, self.fake_im, merge], feed_dict=dict_)
 
-                    if self.debug and ep == 0 and j == 0:
+                    if self.saved_model and ep == 0 and j == 0:
                         tf.saved_model.simple_save(sess,
                                                    export_dir=os.path.join(self.save_path, 'netG'),
                                                    inputs={'input': self.label},
                                                    outputs={'output': self.fake_im})
                     graph.add_summary(Merge, step)
                     if (ep*self.n_im+j*self.batch) % self.save_iter == 0:
+                        g_loss, feat_loss, vgg_loss = sess.run([self.lsgan_g, self.feat_loss, self.vgg_loss])
+                        print('epoch: {} step: {}, \
+                              d1_loss: {}, d2_loss: {}, \
+                              g_loss: {}, feat_loss: {}, \
+                              vgg_loss: {} \
+                              '.format(ep+1,
+                                       int(j*self.batch)+1,
+                                        d1_loss,
+                                        d2_loss,
+                                        g_loss, feat_loss, vgg_loss))
                         Save_im(fake_im * 255, self.save_im_dir, ep, j)
 
                 if ep % self.save_ckpt_ep == 0:
-                    g_loss, feat_loss, vgg_loss = sess.run([self.lsgan_g, self.feat_loss, self.vgg_loss])
-                    print('epoch: {} step: {}, \
-                          d1_loss: {}, d2_loss: {}, \
-                          g_loss: {}, feat_loss: {}, \
-                          vgg_loss: {} \
-                          '.format(ep+1,
-                                   int(j*self.batch)+1,
-                                    d1_loss,
-                                    d2_loss,
-                                    g_loss, feat_loss, vgg_loss))
                     num_trained = int(j*self.batch+ep*self.n_im)
                     Saver.save(sess, self.save_path + '/' + 'model.ckpt', num_trained)
                     print('save success at num images trained: ',num_trained)
