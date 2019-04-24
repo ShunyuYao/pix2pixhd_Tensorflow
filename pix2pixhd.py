@@ -33,7 +33,7 @@ class pix2pixHD:
         # process
         self.onehot = tf.one_hot(self.label, self.n_class)
         # self.bound_ = tf.expand_dims(self.bound,3)
-        self.real_im = self.real_im / 255
+        # self.real_im = ((self.real_im / 255) - 0.5) / 0.5
 
         self.vggloss = VGGLoss()
         self.lambda_feat = opt.lambda_feat
@@ -130,6 +130,7 @@ class pix2pixHD:
 
         self.real_D2_out = self.build_D2(self.real_im,self.onehot,False)
         self.fake_D2_out = self.build_D2(self.fake_im,self.onehot,True)
+        tf.summary.image('gen_img', (self.fake_im * 0.5 + 0.5)*255)
 
     def cacu_loss(self):
         self.lsgan_d1 = 0.5 * (disc_loss(self.real_D1_out, True) + disc_loss(self.fake_D1_out, False))
@@ -181,12 +182,15 @@ class pix2pixHD:
                 for j in range(self.n_im//self.batch):
                     dataset = sess.run(next_data)
                     label_fed, real_im_fed = dataset[0], dataset[1]
+                    real_im_fed = ((real_im_fed / 255) - 0.5) / 0.5
                     dict_ = {self.label: label_fed,
                              self.real_im: real_im_fed}
 
                     step = int(ep*(self.n_im // self.batch) + j)
                     _, _ = sess.run([optim_D1, optim_D2], feed_dict=dict_)
                     _, fake_im, Merge = sess.run([optim_G_ALL, self.fake_im, merge], feed_dict=dict_)
+                    # print('real:', sess.run(self.real_im, feed_dict={self.real_im: real_im_fed})[0,:32,:32,:])
+                    print('fake:', (fake_im[0, :, :, :] * 0.5 + 0.5) * 255)
 
                     if self.saved_model and ep == 0 and j == 0:
                         tf.saved_model.simple_save(sess,
@@ -205,7 +209,7 @@ class pix2pixHD:
                         #                 d1_loss,
                         #                 d2_loss,
                         #                 g_loss, feat_loss, vgg_loss))
-                        Save_im(fake_im * 255, self.save_im_dir, ep, j)
+                        Save_im((fake_im * 0.5 + 0.5) * 255, self.save_im_dir, ep, j)
 
                 if ep % self.save_ckpt_ep == 0:
                     num_trained = int(j*self.batch+ep*self.n_im)
@@ -255,7 +259,7 @@ class VGGLoss(tf.keras.Model):
         loss = 0
         for i in range(len(x_vgg)):
             y_vgg_temp = tf.stop_gradient(y_vgg[i])
-            loss += self.layer_weights[i] * tf.reduce_mean(tf.square(x_vgg[i]) + tf.square(y_vgg[i]))
+            loss += self.layer_weights[i] * tf.reduce_mean(tf.abs(x_vgg[i] - y_vgg[i]))
         return loss
 
 
