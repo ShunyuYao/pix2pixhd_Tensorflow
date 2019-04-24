@@ -132,10 +132,13 @@ class pix2pixHD:
         self.fake_D2_out = self.build_D2(self.fake_im,self.onehot,True)
 
     def cacu_loss(self):
-        self.lsgan_d1 = tf.reduce_mean(0.5*tf.square(self.real_D1_out[-1]-1) + 0.5*tf.square(self.fake_D1_out[-1]))
-        self.lsgan_d2 = tf.reduce_mean(0.5*tf.square(self.real_D2_out[-1]-1) + 0.5*tf.square(self.fake_D2_out[-1]))
-        self.lsgan_g = 0.5*tf.reduce_mean(tf.square(self.fake_D2_out[-1]-1)) + 0.5*tf.reduce_mean(tf.square(self.fake_D1_out[-1]-1))
-        self.feat_loss = feat_loss(self.real_D1_out, self.fake_D1_out, self.real_D2_out, self.fake_D2_out, self.feat_weight, self.d_weight)
+        self.lsgan_d1 = 0.5 * (disc_loss(self.real_D1_out, True) + disc_loss(self.fake_D1_out, False))
+        self.lsgan_d2 = 0.5 * (disc_loss(self.real_D2_out, True) + disc_loss(self.fake_D2_out, False))
+        # tf.reduce_mean(0.5*tf.square(self.real_D1_out[-1]-1) + 0.5*tf.square(self.fake_D1_out[-1]))
+        # self.lsgan_d2 = tf.reduce_mean(0.5*tf.square(self.real_D2_out[-1]-1) + 0.5*tf.square(self.fake_D2_out[-1]))
+        self.lsgan_g = disc_loss(self.fake_D1_out, True) + disc_loss(self.fake_D2_out, True)
+        # 0.5*tf.reduce_mean(tf.square(self.fake_D2_out[-1]-1)) + 0.5*tf.reduce_mean(tf.square(self.fake_D1_out[-1]-1))
+        self.feat_loss = feat_loss(self.real_D1_out, self.fake_D1_out, self.real_D2_out, self.fake_D2_out, self.feat_weight, self.d_weight) * self.lambda_feat
         self.vgg_loss = self.vggloss(self.fake_im, self.real_im) * self.lambda_feat
 
         tf.summary.scalar('d1_loss',self.lsgan_d1)
@@ -182,7 +185,7 @@ class pix2pixHD:
                              self.real_im: real_im_fed}
 
                     step = int(ep*(self.n_im // self.batch) + j)
-                    d1_loss, d2_loss = sess.run([optim_D1, optim_D2], feed_dict=dict_)
+                    _, _ = sess.run([optim_D1, optim_D2], feed_dict=dict_)
                     _, fake_im, Merge = sess.run([optim_G_ALL, self.fake_im, merge], feed_dict=dict_)
 
                     if self.saved_model and ep == 0 and j == 0:

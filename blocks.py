@@ -93,14 +93,33 @@ def D_base(name,x):
 def feat_loss(d1_r,d1_f,d2_r,d2_f,feat_weight,d_weight):
     feat_1,feat_2 = [],[]
     for i in range(len(d1_r)):
-        l1_loss = tf.reduce_mean(tf.abs(d1_r[i]-d1_f[i]))*feat_weight*d_weight*(4/(1+5))
+        l1_loss = tf.reduce_mean(tf.abs(d1_r[i]-d1_f[i]))*feat_weight*d_weight
         feat_1.append(l1_loss)
     for i in range(len(d2_r)):
-        l1_loss = tf.reduce_mean(tf.abs(d2_r[i]-d2_f[i]))*feat_weight*d_weight*(4/(1+5))
+        l1_loss = tf.reduce_mean(tf.abs(d2_r[i]-d2_f[i]))*feat_weight*d_weight
         feat_2.append(l1_loss)
     feat = feat_1 + feat_2
     loss_total = functools.reduce(tf.add,feat)
     return loss_total
+
+def disc_loss(input, target_is_real):
+    if isinstance(input[0], list):
+        loss = []
+        for pred in input:
+            if target_is_real:
+                loss_tmp = tf.reduce_mean(tf.square(1 - pred))
+            else:
+                loss_tmp = tf.reduce_mean(tf.square(pred))
+            loss.append(loss_tmp)
+        loss_total = functools.reduce(tf.add, loss)
+        return loss_total
+    else:
+        raise NotImplementedError
+        if target_is_real:
+            target_tensor = tf.ones_like(input[-1])
+        else:
+            target_tensor = tf.zeros_like(input[-1])
+        return criterionGAN(input[-1], target_tensor)
 
 def Save_im(ims,save_dir,ce,cb):
     im_norm = (ims+1)/2

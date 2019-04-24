@@ -13,7 +13,7 @@ def parse_arguments(opts):
     parser.add_argument('--decay_ep', type=int, help='Attenuation control coefficient', default=40)
     parser.add_argument('--im_high', type=int, help='The height of the image', default=1024)
     parser.add_argument('--im_width', type=int, help='The width of the image', default=2048)
-    parser.add_argument('--feat_weight', type=float, help='Weight of feature loss', default=2)
+    parser.add_argument('--feat_weight', type=float, help='Weight of feature loss', default=1)
     parser.add_argument('--old_lr', type=float, help='Initial learning rate', default=2)
     parser.add_argument('--decay_weight', type=int, help='Rate of decay of weight', default=2)
     parser.add_argument('--save_ckpt_ep', type=int, help='Number of cycles to save the model', default=2)
