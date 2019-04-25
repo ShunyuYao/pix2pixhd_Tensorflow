@@ -81,7 +81,7 @@ class pix2pixHD:
      ###############################################################################
 
     def build_G(self, x_label, netG='local'):
-        with tf.variable_scope('G_net'):
+        with tf.variable_scope('G'):
             # x_concat = tf.concat([x_bound, x_label],3)
             if netG == 'global':
                 out = G_base('global_generator', x_label, self.batch)
@@ -120,9 +120,9 @@ class pix2pixHD:
             D = D_base('D',x_pool)
             return D
 
-        with tf.variable_scope('Encoder'):
-            x_encode = G_base('encode',x,self.batch)
-            return x_encode
+        # with tf.variable_scope('Encoder'):
+        #     x_encode = G_base('encode',x,self.batch)
+        #     return x_encode
 
     def forward(self):
         # self.x_feat = self.encoder(self.real_im_)
@@ -160,10 +160,10 @@ class pix2pixHD:
         D2_vars = [var for var in tf.all_variables() if 'D2' in var.name]
         G_vars = [var for var in tf.all_variables() if 'G' in var.name]
         # encoder_vars = [var for var in tf.all_variables() if 'Encoder' in var.name]
-        optim_D1 = tf.train.AdamOptimizer(lr).minimize(self.lsgan_d1, var_list=D1_vars)
-        optim_D2 = tf.train.AdamOptimizer(lr).minimize(self.lsgan_d2, var_list=D2_vars)
-        optim_G_ALL = tf.train.AdamOptimizer(lr).minimize(self.lsgan_g, # + self.feat_loss + self.vgg_loss,
-                                                          var_list=G_vars)
+        optim_D1 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d1, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D1'))
+        optim_D2 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d2, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D2'))
+        optim_G_ALL = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_g + self.feat_loss + self.vgg_loss,
+                                                          var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='G'))
 
         dataset = tf.data.TFRecordDataset([self.tf_record_dir])
         # if self.debug:
