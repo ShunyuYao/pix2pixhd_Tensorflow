@@ -144,7 +144,7 @@ class pix2pixHD:
         self.lsgan_g = disc_loss(self.fake_D1_out, True) + disc_loss(self.fake_D2_out, True)
         # 0.5*tf.reduce_mean(tf.square(self.fake_D2_out[-1]-1)) + 0.5*tf.reduce_mean(tf.square(self.fake_D1_out[-1]-1))
         self.feat_loss = feat_loss(self.real_D1_out, self.fake_D1_out, self.real_D2_out, self.fake_D2_out, self.feat_weight, self.d_weight) * self.lambda_feat
-        self.vgg_loss = self.vggloss(self.fake_im, self.real_im) * self.lambda_feat
+        self.vgg_loss = self.vggloss(self.real_im, self.fake_im) * self.lambda_feat
 
         tf.summary.scalar('d1_loss',self.lsgan_d1)
         tf.summary.scalar('d2_loss',self.lsgan_d2)
