@@ -191,7 +191,7 @@ class pix2pixHD:
                     _, Merge = sess.run([optim_G_ALL, merge], feed_dict=dict_)
                     _, _ = sess.run([optim_D1, optim_D2], feed_dict=dict_)
                     # print('real:', sess.run(self.real_im, feed_dict={self.real_im: real_im_fed})[0,:32,:32,:])
-                    print('fake:', (fake_im[0, :, :, :] * 0.5 + 0.5) * 255)
+                    # print('fake:', (fake_im[0, :, :, :] * 0.5 + 0.5) * 255)
 
                     if self.saved_model and ep == 0 and j == 0:
                         tf.saved_model.simple_save(sess,
