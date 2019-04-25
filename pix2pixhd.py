@@ -180,6 +180,9 @@ class pix2pixHD:
             merge = tf.summary.merge_all()
             graph = tf.summary.FileWriter(self.save_path, sess.graph)
             Saver = tf.train.Saver(max_to_keep=5)
+            if self.restore:
+                Saver.restore(sess, self.ckpt_dir)
+                print('-----restore sucess-----')
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
             for ep in range(self.epoch):
