@@ -162,7 +162,7 @@ class pix2pixHD:
         # encoder_vars = [var for var in tf.all_variables() if 'Encoder' in var.name]
         optim_D1 = tf.train.AdamOptimizer(lr).minimize(self.lsgan_d1, var_list=D1_vars)
         optim_D2 = tf.train.AdamOptimizer(lr).minimize(self.lsgan_d2, var_list=D2_vars)
-        optim_G_ALL = tf.train.AdamOptimizer(lr).minimize(self.lsgan_g + self.feat_loss + self.vgg_loss,
+        optim_G_ALL = tf.train.AdamOptimizer(lr).minimize(self.lsgan_g, # + self.feat_loss + self.vgg_loss,
                                                           var_list=G_vars)
 
         dataset = tf.data.TFRecordDataset([self.tf_record_dir])
