@@ -193,18 +193,20 @@ class pix2pixHD:
                              self.real_im: real_im_fed}
 
                     step = int(ep*(self.n_im // self.batch) + j)
-                    _, Merge = sess.run([optim_G_ALL, merge], feed_dict=dict_)
+                    _ = sess.run([optim_G_ALL], feed_dict=dict_)
                     _, _ = sess.run([optim_D1, optim_D2], feed_dict=dict_)
                     # print('real:', sess.run(self.real_im, feed_dict={self.real_im: real_im_fed})[0,:32,:32,:])
                     # print('fake:', (fake_im[0, :, :, :] * 0.5 + 0.5) * 255)
 
-                    if self.saved_model and ep == 0 and j == 0:
+                    if self.saved_model and self.debug and ep == 0 and j == 0:
                         tf.saved_model.simple_save(sess,
-                                                   export_dir=os.path.join(self.save_path, 'netG'),
+                                                   export_dir=os.path.join(self.save_path, 'net_all'),
                                                    inputs={'input': self.label},
                                                    outputs={'output': self.fake_im})
-                    graph.add_summary(Merge, step)
-                    # if (ep*self.n_im+j*self.batch) % self.save_iter == 0:
+
+                    if (ep*self.n_im+j*self.batch) % self.save_iter == 0:
+                        Merge = sess.run(merge)
+                        graph.add_summary(Merge, step)
                     #     Save_im((fake_im * 0.5 + 0.5) * 255, self.save_im_dir, ep, j)
 
                 if ep % self.save_ckpt_ep == 0:
@@ -213,6 +215,12 @@ class pix2pixHD:
                     print('save success at num images trained: ',num_trained)
                 if ep > self.decay_ep:
                     lr = self.old_lr - ep / self.decay_weight
+
+            if self.saved_model:
+                tf.saved_model.simple_save(sess,
+                                           export_dir=os.path.join(self.save_path, 'net_all'),
+                                           inputs={'input': self.label},
+                                           outputs={'output': self.fake_im})
             coord.request_stop()
             coord.join(threads)
             return True
