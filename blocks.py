@@ -92,10 +92,10 @@ def D_base(name,x):
 
 def feat_loss(d1_r,d1_f,d2_r,d2_f,feat_weight,d_weight):
     feat_1,feat_2 = [],[]
-    for i in range(len(d1_r)):
+    for i in range(len(d1_r)-1):
         l1_loss = tf.reduce_mean(tf.abs(d1_r[i]-d1_f[i]))*feat_weight*d_weight
         feat_1.append(l1_loss)
-    for i in range(len(d2_r)):
+    for i in range(len(d2_r)-1):
         l1_loss = tf.reduce_mean(tf.abs(d2_r[i]-d2_f[i]))*feat_weight*d_weight
         feat_2.append(l1_loss)
     feat = feat_1 + feat_2

@@ -28,8 +28,8 @@ class pix2pixHD:
         self.label = tf.placeholder(tf.int32,[None,self.im_width,self.im_height])
         # self.bound = tf.placeholder(tf.float32,[None,self.im_width,self.im_height])
         self.real_im = tf.placeholder(tf.float32,[None,self.im_width,self.im_height,3])
-        self.k = tf.placeholder(tf.float32,[1])
-        self.b = tf.placeholder(tf.float32,[None,self.im_width,self.im_height,3])
+        # self.k = tf.placeholder(tf.float32,[1])
+        # self.b = tf.placeholder(tf.float32,[None,self.im_width,self.im_height,3])
         # process
         self.onehot = tf.one_hot(self.label, self.n_class)
         # self.bound_ = tf.expand_dims(self.bound,3)
@@ -80,7 +80,7 @@ class pix2pixHD:
     #     return image_label, image_real
      ###############################################################################
 
-    def build_G(self, x_label, netG='global'):
+    def build_G(self, x_label, netG='local'):
         with tf.variable_scope('G_net'):
             # x_concat = tf.concat([x_bound, x_label],3)
             if netG == 'global':
@@ -101,8 +101,10 @@ class pix2pixHD:
                 res_1 = res_block('res_1',G_add, dim=64)
                 res_2 = res_block('res_2',res_1, dim=64)
                 res_3 = res_block('res_3',res_2, dim=64)
-                trans1 = conv_trans('trans1',res_3,3*3,3,2,self.batch,True)
-                trans_tanh = tanh('trans_tanh',trans1)
+                trans1 = conv_trans('trans1',res_3,3*3,32,2,self.batch,True)
+                ins_trans1 = tf.nn.relu(ins_norm('ins_trans1', trans1))
+                conv_fin = conv('conv_fin',ins_trans1,7*7,3,1,3,False)
+                trans_tanh = tanh('trans_tanh',conv_fin)
             return trans_tanh
 
     def build_D1(self,im,label,reuse):
@@ -164,8 +166,8 @@ class pix2pixHD:
                                                           var_list=G_vars)
 
         dataset = tf.data.TFRecordDataset([self.tf_record_dir])
-        if self.debug:
-            dataset = dataset.take(100)
+        # if self.debug:
+        #     dataset = dataset.take(100)
         dataset = dataset.map(self._extract_fn)
         dataset = dataset.repeat()  # Repeat the input indefinitely.
         dataset = dataset.batch(self.batch)
@@ -250,7 +252,7 @@ class VGGLoss(tf.keras.Model):
         loss = 0
         for i in range(len(x_vgg)):
             y_vgg_temp = tf.stop_gradient(y_vgg[i])
-            loss += self.layer_weights[i] * tf.reduce_mean(tf.abs(x_vgg[i] - y_vgg[i]))
+            loss += self.layer_weights[i] * tf.reduce_mean(tf.abs(x_vgg[i] - y_vgg_temp))
         return loss
 
 
