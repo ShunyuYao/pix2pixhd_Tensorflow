@@ -40,6 +40,7 @@ class pix2pixHD:
 
         self.debug = opt.debug
         self.saved_model = opt.saved_model
+        self.restore = opt.restore
         if self.debug:
             self.save_iter = 5
 
