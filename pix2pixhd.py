@@ -1,6 +1,7 @@
 from activations import *
 from conv_base import *
 from blocks import *
+import sys
 
 class pix2pixHD:
     def __init__(self,opt):
@@ -17,6 +18,8 @@ class pix2pixHD:
         self.im_height = opt.im_high
         self.save_ckpt_ep = opt.save_ckpt_ep
         self.n_im = len(os.listdir(opt.data_dir))
+        print('total images: ', self.n_im)
+        sys.stdout.flush()
 
         self.tf_record_dir = opt.tf_record_dir
         self.save_path = opt.save_path    #'./data/pix2pixhd/Logs'
@@ -187,13 +190,18 @@ class pix2pixHD:
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
             for ep in range(self.epoch):
+                print('epoch: ', ep+1)
+                sys.stdout.flush()
                 for j in range(self.n_im//self.batch):
+                    print('\t step: ', j+1)
+                    sys.stdout.flush()
                     dataset = sess.run(next_data)
                     label_fed, real_im_fed = dataset[0], dataset[1]
                     dict_ = {self.label: label_fed,
                              self.real_im: real_im_fed}
 
                     step = int(ep*(self.n_im // self.batch) + j)
+                    total_step = j*self.batch + ep*self.n_im
                     _ = sess.run([optim_G_ALL], feed_dict=dict_)
                     _, _ = sess.run([optim_D1, optim_D2], feed_dict=dict_)
                     # print('real:', sess.run(self.real_im, feed_dict={self.real_im: real_im_fed})[0,:32,:32,:])
@@ -205,15 +213,20 @@ class pix2pixHD:
                                                    inputs={'input': self.label},
                                                    outputs={'output': self.fake_im})
 
-                    if (ep*self.n_im+j*self.batch) % self.save_iter == 0:
-                        Merge = sess.run(merge)
+                    if (j+1) % self.save_iter == 0:
+                        print('save iter')
+                        sys.stdout.flush()
+                        Merge = sess.run(merge, feed_dict=dict_)
                         graph.add_summary(Merge, step)
                     #     Save_im((fake_im * 0.5 + 0.5) * 255, self.save_im_dir, ep, j)
 
-                if ep % self.save_ckpt_ep == 0:
-                    num_trained = int(j*self.batch+ep*self.n_im)
+                if (ep+1) % self.save_ckpt_ep == 0:
+                    print('save epoch')
+                    sys.stdout.flush()
+                    num_trained = total_step
                     Saver.save(sess, self.save_path + '/' + 'model.ckpt', num_trained)
                     print('save success at num images trained: ',num_trained)
+                    sys.stdout.flush()
                 if ep > self.decay_ep:
                     lr = self.old_lr - ep / self.decay_weight
 

@@ -13,7 +13,7 @@ nohup.out
 
 # some sh
 debug_train.sh
-/train_sbash
+/sbatch
 
 # pb model file
 *.pb
