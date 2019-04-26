@@ -206,8 +206,19 @@ class pix2pixHD:
             graph = tf.summary.FileWriter(self.save_path, sess.graph)
             Saver = tf.train.Saver(max_to_keep=5)
             if self.restore:
-                Saver.restore(sess, self.ckpt_dir)
+                restore_vars = []
+                for var in tf.all_variables():
+                    if 'G' in var.name:
+                        restore_vars.append(var)
+                    elif 'D1' in var.name:
+                        restore_vars.append(var)
+                    elif 'D2' in var.name:
+                        restore_vars.append(var)
+                restore_saver = tf.train.Saver(var_list=restore_vars)
+                restore_saver.restore(sess, self.ckpt_dir)
                 print('-----restore sucess-----')
+                sys.stdout.flush()
+
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
             for ep in range(self.epoch):
