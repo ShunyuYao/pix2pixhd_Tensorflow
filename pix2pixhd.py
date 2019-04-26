@@ -34,13 +34,21 @@ class pix2pixHD:
         # self.k = tf.placeholder(tf.float32,[1])
         # self.b = tf.placeholder(tf.float32,[None,self.im_width,self.im_height,3])
         # process
+        step_per_epoch = self.n_im // self.batch
+        self.total_steps = self.epoch * step_per_epoch
+        self.global_step = tf.Variable(0, trainable=False)
+        self.lr = tf.train.polynomial_decay(self.old_lr,
+                                            self.global_step,
+                                            self.total_steps,
+                                            end_learning_rate = 1e-8
+                                            )
         self.onehot = tf.one_hot(self.label, self.n_class)
         # self.bound_ = tf.expand_dims(self.bound,3)
         # self.real_im = ((self.real_im / 255) - 0.5) / 0.5
 
         self.vggloss = VGGLoss()
         self.lambda_feat = opt.lambda_feat
-
+        self.lr_decay = opt.lr_decay
         self.debug = opt.debug
         self.saved_model = opt.saved_model
         self.restore = opt.restore
@@ -164,10 +172,23 @@ class pix2pixHD:
         D2_vars = [var for var in tf.all_variables() if 'D2' in var.name]
         G_vars = [var for var in tf.all_variables() if 'G' in var.name]
         # encoder_vars = [var for var in tf.all_variables() if 'Encoder' in var.name]
-        optim_D1 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d1, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D1'))
-        optim_D2 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d2, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D2'))
-        optim_G_ALL = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_g + self.feat_loss + self.vgg_loss,
-                                                          var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='G'))
+        if not self.lr_decay:
+            optim_D1 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d1, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D1'))
+            optim_D2 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d2, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D2'))
+            optim_G_ALL = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_g + self.feat_loss + self.vgg_loss,
+                                                              var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='G'))
+        else:
+            optim_D1 = tf.train.AdamOptimizer(self.lr, beta1=0.5).minimize(self.lsgan_d1,
+                                                                           var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D1'),
+                                                                           global_step=self.global_step)
+            optim_D2 = tf.train.AdamOptimizer(self.lr, beta1=0.5).minimize(self.lsgan_d2,
+                                                                           var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D2'),
+                                                                           global_step=self.global_step)
+            optim_G_ALL = tf.train.AdamOptimizer(self.lr, beta1=0.5).minimize(self.lsgan_g + self.feat_loss + self.vgg_loss,
+                                                              var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='G'),
+                                                              global_step=self.global_step)
+            tf.summary.scalar('lr', self.lr)
+
 
         dataset = tf.data.TFRecordDataset([self.tf_record_dir])
         # if self.debug:

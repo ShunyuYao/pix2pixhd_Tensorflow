@@ -25,6 +25,7 @@ def parse_arguments(opts):
     parser.add_argument('--label_dir', type=str, help='Label path during testing', default="./data/model/Label")
     parser.add_argument('--inst_dir', type=str, help='Label path during testing', default="./data/model/Label")
     parser.add_argument('--lambda_feat', type=float, help='vgg19 feature matching loss weight', default=10.0)
+    parser.add_argument('--lr_decay', action='store_true', help='use linear learning rate decay or not')
     parser.add_argument('--saved_model', action='store_true', help='freeze the model to saved_model format')
     parser.add_argument('--restore', action='store_true', help='restore from the skpt')
     parser.add_argument('--debug', action='store_true')
