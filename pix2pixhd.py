@@ -226,29 +226,54 @@ class pix2pixHD:
             coord.join(threads)
             return True
 
-    def Load_model(self,b_fed):
+    def Load_model(self):
         #  b_fed is a feature vector extracted from the encoder's encoding and needs to be specified
         #   by human (by clustering the results of the trained encoder).
         # self.x_feat = self.encoder(self.real_im_)
-        self.fake_im = self.build_G(self.bound_,self.onehot,self.x_feat,self.k,self.b)
+        self.fake_im = self.build_G(self.onehot)
         G_vars = [var for var in tf.all_variables() if 'G' in var.name]
+
+        dataset = tf.data.TFRecordDataset([self.tf_record_dir])
+        # if self.debug:
+        #     dataset = dataset.take(100)
+        dataset = dataset.map(self._extract_fn)
+        dataset = dataset.repeat()  # Repeat the input indefinitely.
+        dataset = dataset.batch(self.batch)
+        iterator = dataset.make_initializable_iterator()
+        next_data = iterator.get_next()
+
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
+
+            sess.run(iterator.initializer)
+
             graph = tf.summary.FileWriter(self.logdir, sess.graph)
             Saver = tf.train.Saver(var_list=G_vars)
-            Saver.restore(sess,self.ckpt_dir)
+            Saver.restore(sess, self.ckpt_dir)
 
-            label_fed, bound_fed = load_data(self.label_dir,self.inst_dir)
-            #  k_fed must be zero, which means that the actual output of the encoder is not considered, because there is no ideal result color map when used.
-            #      (The characteristic input of G is: output(encoder)*k+b, k=1 during training, b=0)
-            k_fed = np.zeros([1],np.float32)
-
-            real_im_fed = np.zeros([np.shape(label_fed)[0],self.im_width,self.im_height,3],np.float32)
-
-            dict_ = {self.label:label_fed,self.bound:bound_fed,self.real_im:real_im_fed,self.k:k_fed,self.b:b_fed}
-
+            dataset = sess.run(next_data)
+            label_fed, real_im_fed = dataset[0], dataset[1]
+            dict_ = {self.label: label_fed,
+                     self.real_im: real_im_fed}
             ims = sess.run(self.fake_im, feed_dict=dict_)
-            Save_im(ims, self.save_im_dir, 0, 0)
+
+            if self.saved_model:
+                tf.saved_model.simple_save(sess,
+                                           export_dir=os.path.join(self.save_path, 'net_G'),
+                                           inputs={'input': self.label},
+                                           outputs={'output': self.fake_im})
+
+            # label_fed, bound_fed = load_data(self.label_dir,self.inst_dir)
+            # #  k_fed must be zero, which means that the actual output of the encoder is not considered, because there is no ideal result color map when used.
+            # #      (The characteristic input of G is: output(encoder)*k+b, k=1 during training, b=0)
+            # k_fed = np.zeros([1],np.float32)
+            #
+            # real_im_fed = np.zeros([np.shape(label_fed)[0],self.im_width,self.im_height,3],np.float32)
+            #
+            # dict_ = {self.label:label_fed,self.bound:bound_fed,self.real_im:real_im_fed,self.k:k_fed,self.b:b_fed}
+
+
+            # Save_im(ims, self.save_im_dir, 0, 0)
             print(np.shape(ims))
 
 

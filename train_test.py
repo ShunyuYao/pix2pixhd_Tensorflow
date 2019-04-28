@@ -36,7 +36,7 @@ def main(opt):
         HD.train()
     else:
 #         b_fed : your features producted by encoder after clustering
-        HD.Load_model(b_fed)
+        HD.Load_model()
     return True
 
 if __name__ == '__main__':
