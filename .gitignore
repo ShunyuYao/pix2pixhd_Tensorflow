@@ -13,11 +13,14 @@ nohup.out
 
 # some sh
 debug_train.sh
-/train_sbash
+/sbatch
 
-# pb model file
+# pb model files
 *.pb
 *.pbtxt
+
+# swp files
+*.swp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

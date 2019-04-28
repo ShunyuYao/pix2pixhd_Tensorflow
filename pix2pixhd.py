@@ -1,6 +1,7 @@
 from activations import *
 from conv_base import *
 from blocks import *
+import sys
 
 class pix2pixHD:
     def __init__(self,opt):
@@ -17,6 +18,8 @@ class pix2pixHD:
         self.im_height = opt.im_high
         self.save_ckpt_ep = opt.save_ckpt_ep
         self.n_im = len(os.listdir(opt.data_dir))
+        print('total images: ', self.n_im)
+        sys.stdout.flush()
 
         self.tf_record_dir = opt.tf_record_dir
         self.save_path = opt.save_path    #'./data/pix2pixhd/Logs'
@@ -31,13 +34,21 @@ class pix2pixHD:
         # self.k = tf.placeholder(tf.float32,[1])
         # self.b = tf.placeholder(tf.float32,[None,self.im_width,self.im_height,3])
         # process
+        step_per_epoch = self.n_im // self.batch
+        self.total_steps = self.epoch * step_per_epoch
+        self.global_step = tf.Variable(0, trainable=False)
+        self.lr = tf.train.polynomial_decay(self.old_lr,
+                                            self.global_step,
+                                            self.total_steps,
+                                            end_learning_rate = 1e-8
+                                            )
         self.onehot = tf.one_hot(self.label, self.n_class)
         # self.bound_ = tf.expand_dims(self.bound,3)
         # self.real_im = ((self.real_im / 255) - 0.5) / 0.5
 
         self.vggloss = VGGLoss()
         self.lambda_feat = opt.lambda_feat
-
+        self.lr_decay = opt.lr_decay
         self.debug = opt.debug
         self.saved_model = opt.saved_model
         self.restore = opt.restore
@@ -161,10 +172,23 @@ class pix2pixHD:
         D2_vars = [var for var in tf.all_variables() if 'D2' in var.name]
         G_vars = [var for var in tf.all_variables() if 'G' in var.name]
         # encoder_vars = [var for var in tf.all_variables() if 'Encoder' in var.name]
-        optim_D1 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d1, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D1'))
-        optim_D2 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d2, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D2'))
-        optim_G_ALL = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_g + self.feat_loss + self.vgg_loss,
-                                                          var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='G'))
+        if not self.lr_decay:
+            optim_D1 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d1, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D1'))
+            optim_D2 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d2, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D2'))
+            optim_G_ALL = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_g + self.feat_loss + self.vgg_loss,
+                                                              var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='G'))
+        else:
+            optim_D1 = tf.train.AdamOptimizer(self.lr, beta1=0.5).minimize(self.lsgan_d1,
+                                                                           var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D1'),
+                                                                           global_step=self.global_step)
+            optim_D2 = tf.train.AdamOptimizer(self.lr, beta1=0.5).minimize(self.lsgan_d2,
+                                                                           var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D2'),
+                                                                           global_step=self.global_step)
+            optim_G_ALL = tf.train.AdamOptimizer(self.lr, beta1=0.5).minimize(self.lsgan_g + self.feat_loss + self.vgg_loss,
+                                                              var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='G'),
+                                                              global_step=self.global_step)
+            tf.summary.scalar('lr', self.lr)
+
 
         dataset = tf.data.TFRecordDataset([self.tf_record_dir])
         # if self.debug:
@@ -182,18 +206,34 @@ class pix2pixHD:
             graph = tf.summary.FileWriter(self.save_path, sess.graph)
             Saver = tf.train.Saver(max_to_keep=5)
             if self.restore:
-                Saver.restore(sess, self.ckpt_dir)
+                restore_vars = []
+                for var in tf.all_variables():
+                    if 'G' in var.name:
+                        restore_vars.append(var)
+                    elif 'D1' in var.name:
+                        restore_vars.append(var)
+                    elif 'D2' in var.name:
+                        restore_vars.append(var)
+                restore_saver = tf.train.Saver(var_list=restore_vars)
+                restore_saver.restore(sess, self.ckpt_dir)
                 print('-----restore sucess-----')
+                sys.stdout.flush()
+
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
             for ep in range(self.epoch):
+                print('epoch: ', ep+1)
+                sys.stdout.flush()
                 for j in range(self.n_im//self.batch):
+                    print('\t step: ', j+1)
+                    sys.stdout.flush()
                     dataset = sess.run(next_data)
                     label_fed, real_im_fed = dataset[0], dataset[1]
                     dict_ = {self.label: label_fed,
                              self.real_im: real_im_fed}
 
                     step = int(ep*(self.n_im // self.batch) + j)
+                    total_step = j*self.batch + ep*self.n_im
                     _ = sess.run([optim_G_ALL], feed_dict=dict_)
                     _, _ = sess.run([optim_D1, optim_D2], feed_dict=dict_)
                     # print('real:', sess.run(self.real_im, feed_dict={self.real_im: real_im_fed})[0,:32,:32,:])
@@ -205,15 +245,20 @@ class pix2pixHD:
                                                    inputs={'input': self.label},
                                                    outputs={'output': self.fake_im})
 
-                    if (ep*self.n_im+j*self.batch) % self.save_iter == 0:
-                        Merge = sess.run(merge)
+                    if (j+1) % self.save_iter == 0:
+                        print('save iter')
+                        sys.stdout.flush()
+                        Merge = sess.run(merge, feed_dict=dict_)
                         graph.add_summary(Merge, step)
                     #     Save_im((fake_im * 0.5 + 0.5) * 255, self.save_im_dir, ep, j)
 
-                if ep % self.save_ckpt_ep == 0:
-                    num_trained = int(j*self.batch+ep*self.n_im)
+                if (ep+1) % self.save_ckpt_ep == 0:
+                    print('save epoch')
+                    sys.stdout.flush()
+                    num_trained = total_step
                     Saver.save(sess, self.save_path + '/' + 'model.ckpt', num_trained)
                     print('save success at num images trained: ',num_trained)
+                    sys.stdout.flush()
                 if ep > self.decay_ep:
                     lr = self.old_lr - ep / self.decay_weight
 
