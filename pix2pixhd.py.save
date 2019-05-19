@@ -1,7 +1,6 @@
 from activations import *
 from conv_base import *
 from blocks import *
-import sys
 
 class pix2pixHD:
     def __init__(self,opt):
@@ -18,8 +17,6 @@ class pix2pixHD:
         self.im_height = opt.im_high
         self.save_ckpt_ep = opt.save_ckpt_ep
         self.n_im = len(os.listdir(opt.data_dir))
-        print('total images: ', self.n_im)
-        sys.stdout.flush()
 
         self.tf_record_dir = opt.tf_record_dir
         self.save_path = opt.save_path    #'./data/pix2pixhd/Logs'
@@ -34,24 +31,15 @@ class pix2pixHD:
         # self.k = tf.placeholder(tf.float32,[1])
         # self.b = tf.placeholder(tf.float32,[None,self.im_width,self.im_height,3])
         # process
-        step_per_epoch = self.n_im // self.batch
-        self.total_steps = self.epoch * step_per_epoch
-        self.global_step = tf.Variable(0, trainable=False)
-        self.lr = tf.train.polynomial_decay(self.old_lr,
-                                            self.global_step,
-                                            self.total_steps,
-                                            end_learning_rate = 1e-8
-                                            )
         self.onehot = tf.one_hot(self.label, self.n_class)
         # self.bound_ = tf.expand_dims(self.bound,3)
         # self.real_im = ((self.real_im / 255) - 0.5) / 0.5
 
         self.vggloss = VGGLoss()
         self.lambda_feat = opt.lambda_feat
-        self.lr_decay = opt.lr_decay
+
         self.debug = opt.debug
         self.saved_model = opt.saved_model
-        self.restore = opt.restore
         if self.debug:
             self.save_iter = 5
 
@@ -93,7 +81,7 @@ class pix2pixHD:
      ###############################################################################
 
     def build_G(self, x_label, netG='local'):
-        with tf.variable_scope('G'):
+        with tf.variable_scope('G_net'):
             # x_concat = tf.concat([x_bound, x_label],3)
             if netG == 'global':
                 out = G_base('global_generator', x_label, self.batch)
@@ -132,9 +120,9 @@ class pix2pixHD:
             D = D_base('D',x_pool)
             return D
 
-        # with tf.variable_scope('Encoder'):
-        #     x_encode = G_base('encode',x,self.batch)
-        #     return x_encode
+        with tf.variable_scope('Encoder'):
+            x_encode = G_base('encode',x,self.batch)
+            return x_encode
 
     def forward(self):
         # self.x_feat = self.encoder(self.real_im_)
@@ -172,23 +160,10 @@ class pix2pixHD:
         D2_vars = [var for var in tf.all_variables() if 'D2' in var.name]
         G_vars = [var for var in tf.all_variables() if 'G' in var.name]
         # encoder_vars = [var for var in tf.all_variables() if 'Encoder' in var.name]
-        if not self.lr_decay:
-            optim_D1 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d1, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D1'))
-            optim_D2 = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_d2, var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D2'))
-            optim_G_ALL = tf.train.AdamOptimizer(lr, beta1=0.5).minimize(self.lsgan_g + self.feat_loss + self.vgg_loss,
-                                                              var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='G'))
-        else:
-            optim_D1 = tf.train.AdamOptimizer(self.lr, beta1=0.5).minimize(self.lsgan_d1,
-                                                                           var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D1'),
-                                                                           global_step=self.global_step)
-            optim_D2 = tf.train.AdamOptimizer(self.lr, beta1=0.5).minimize(self.lsgan_d2,
-                                                                           var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='D2'),
-                                                                           global_step=self.global_step)
-            optim_G_ALL = tf.train.AdamOptimizer(self.lr, beta1=0.5).minimize(self.lsgan_g + self.feat_loss + self.vgg_loss,
-                                                              var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='G'),
-                                                              global_step=self.global_step)
-            tf.summary.scalar('lr', self.lr)
-
+        optim_D1 = tf.train.AdamOptimizer(lr).minimize(self.lsgan_d1, var_list=D1_vars)
+        optim_D2 = tf.train.AdamOptimizer(lr).minimize(self.lsgan_d2, var_list=D2_vars)
+        optim_G_ALL = tf.train.AdamOptimizer(lr).minimize(self.lsgan_g + self.feat_loss ,
+                                                          var_list=G_vars)
 
         dataset = tf.data.TFRecordDataset([self.tf_record_dir])
         # if self.debug:
@@ -205,120 +180,63 @@ class pix2pixHD:
             merge = tf.summary.merge_all()
             graph = tf.summary.FileWriter(self.save_path, sess.graph)
             Saver = tf.train.Saver(max_to_keep=5)
-            if self.restore:
-                restore_vars = []
-                for var in tf.all_variables():
-                    if 'G' in var.name:
-                        restore_vars.append(var)
-                    elif 'D1' in var.name:
-                        restore_vars.append(var)
-                    elif 'D2' in var.name:
-                        restore_vars.append(var)
-                restore_saver = tf.train.Saver(var_list=restore_vars)
-                restore_saver.restore(sess, self.ckpt_dir)
-                print('-----restore sucess-----')
-                sys.stdout.flush()
-
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
             for ep in range(self.epoch):
-                print('epoch: ', ep+1)
-                sys.stdout.flush()
                 for j in range(self.n_im//self.batch):
-                    print('\t step: ', j+1)
-                    sys.stdout.flush()
                     dataset = sess.run(next_data)
                     label_fed, real_im_fed = dataset[0], dataset[1]
                     dict_ = {self.label: label_fed,
                              self.real_im: real_im_fed}
 
                     step = int(ep*(self.n_im // self.batch) + j)
-                    total_step = j*self.batch + ep*self.n_im
-                    _ = sess.run([optim_G_ALL], feed_dict=dict_)
+                    _, Merge = sess.run([optim_G_ALL, merge], feed_dict=dict_)
                     _, _ = sess.run([optim_D1, optim_D2], feed_dict=dict_)
                     # print('real:', sess.run(self.real_im, feed_dict={self.real_im: real_im_fed})[0,:32,:32,:])
                     # print('fake:', (fake_im[0, :, :, :] * 0.5 + 0.5) * 255)
 
-                    if self.saved_model and self.debug and ep == 0 and j == 0:
+                    if self.saved_model and ep == 0 and j == 0:
                         tf.saved_model.simple_save(sess,
-                                                   export_dir=os.path.join(self.save_path, 'net_all'),
+                                                   export_dir=os.path.join(self.save_path, 'netG'),
                                                    inputs={'input': self.label},
                                                    outputs={'output': self.fake_im})
-
-                    if (j+1) % self.save_iter == 0:
-                        print('save iter')
-                        sys.stdout.flush()
-                        Merge = sess.run(merge, feed_dict=dict_)
-                        graph.add_summary(Merge, step)
+                    graph.add_summary(Merge, step)
+                    # if (ep*self.n_im+j*self.batch) % self.save_iter == 0:
                     #     Save_im((fake_im * 0.5 + 0.5) * 255, self.save_im_dir, ep, j)
 
-                if (ep+1) % self.save_ckpt_ep == 0:
-                    print('save epoch')
-                    sys.stdout.flush()
-                    num_trained = total_step
+                if ep % self.save_ckpt_ep == 0:
+                    num_trained = int(j*self.batch+ep*self.n_im)
                     Saver.save(sess, self.save_path + '/' + 'model.ckpt', num_trained)
                     print('save success at num images trained: ',num_trained)
-                    sys.stdout.flush()
                 if ep > self.decay_ep:
                     lr = self.old_lr - ep / self.decay_weight
-
-            if self.saved_model:
-                tf.saved_model.simple_save(sess,
-                                           export_dir=os.path.join(self.save_path, 'net_all'),
-                                           inputs={'input': self.label},
-                                           outputs={'output': self.fake_im})
             coord.request_stop()
             coord.join(threads)
             return True
 
-    def Load_model(self):
+    def Load_model(self,b_fed):
         #  b_fed is a feature vector extracted from the encoder's encoding and needs to be specified
         #   by human (by clustering the results of the trained encoder).
         # self.x_feat = self.encoder(self.real_im_)
-        self.fake_im = self.build_G(self.onehot)
+        self.fake_im = self.build_G(self.bound_,self.onehot,self.x_feat,self.k,self.b)
         G_vars = [var for var in tf.all_variables() if 'G' in var.name]
-
-        dataset = tf.data.TFRecordDataset([self.tf_record_dir])
-        # if self.debug:
-        #     dataset = dataset.take(100)
-        dataset = dataset.map(self._extract_fn)
-        dataset = dataset.repeat()  # Repeat the input indefinitely.
-        dataset = dataset.batch(self.batch)
-        iterator = dataset.make_initializable_iterator()
-        next_data = iterator.get_next()
-
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-
-            sess.run(iterator.initializer)
-
-            graph = tf.summary.FileWriter(self.save_path, sess.graph)
+            graph = tf.summary.FileWriter(self.logdir, sess.graph)
             Saver = tf.train.Saver(var_list=G_vars)
-            Saver.restore(sess, self.ckpt_dir)
+            Saver.restore(sess,self.ckpt_dir)
 
-            dataset = sess.run(next_data)
-            label_fed, real_im_fed = dataset[0], dataset[1]
-            dict_ = {self.label: label_fed,
-                     self.real_im: real_im_fed}
+            label_fed, bound_fed = load_data(self.label_dir,self.inst_dir)
+            #  k_fed must be zero, which means that the actual output of the encoder is not considered, because there is no ideal result color map when used.
+            #      (The characteristic input of G is: output(encoder)*k+b, k=1 during training, b=0)
+            k_fed = np.zeros([1],np.float32)
+
+            real_im_fed = np.zeros([np.shape(label_fed)[0],self.im_width,self.im_height,3],np.float32)
+
+            dict_ = {self.label:label_fed,self.bound:bound_fed,self.real_im:real_im_fed,self.k:k_fed,self.b:b_fed}
+
             ims = sess.run(self.fake_im, feed_dict=dict_)
-
-            if self.saved_model:
-                tf.saved_model.simple_save(sess,
-                                           export_dir=os.path.join(self.save_path, 'net_G'),
-                                           inputs={'input': self.label},
-                                           outputs={'output': self.fake_im})
-
-            # label_fed, bound_fed = load_data(self.label_dir,self.inst_dir)
-            # #  k_fed must be zero, which means that the actual output of the encoder is not considered, because there is no ideal result color map when used.
-            # #      (The characteristic input of G is: output(encoder)*k+b, k=1 during training, b=0)
-            # k_fed = np.zeros([1],np.float32)
-            #
-            # real_im_fed = np.zeros([np.shape(label_fed)[0],self.im_width,self.im_height,3],np.float32)
-            #
-            # dict_ = {self.label:label_fed,self.bound:bound_fed,self.real_im:real_im_fed,self.k:k_fed,self.b:b_fed}
-
-
-            # Save_im(ims, self.save_im_dir, 0, 0)
+            Save_im(ims, self.save_im_dir, 0, 0)
             print(np.shape(ims))
 
 
